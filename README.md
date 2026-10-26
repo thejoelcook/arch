@@ -1,6 +1,38 @@
-# Arch
+<p align="center">
+  <img src=".github/assets/banner.jpg" alt="Goodbye Arc, hello Arch. A free Chrome extension." width="100%">
+</p>
 
-Arc's sidebar, rebuilt for Chrome. Spaces, pinned tabs with folders, favorites, a command bar, Peek, Now Playing, auto-archive and auto picture-in-picture, all in a Chrome side panel. It runs inside the Chrome you already use, so every Chrome extension keeps working.
+<p align="center">
+  <b>Arc's sidebar, rebuilt for Chrome.</b><br>
+  Spaces, pinned tabs, folders, favorites, a command bar, Peek and more, right inside the Chrome you already use.
+</p>
+
+<p align="center">
+  <a href="https://github.com/thejoelcook/arch/releases/latest/download/arch.zip"><b>Download arch.zip</b></a>
+  &nbsp;·&nbsp;
+  <a href="#install">How to install</a>
+  &nbsp;·&nbsp;
+  <a href="https://www.youtube.com/watch?v=4-g84lWQIEY">Watch the tour</a>
+</p>
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=4-g84lWQIEY"><img src=".github/assets/video.jpg" alt="Watch the 55-second tour of Arch on YouTube" width="720"></a>
+</p>
+
+## A look inside
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/assets/sidebar.jpg" alt="Arch sidebar with spaces, pinned tabs and folders"><br><b>Spaces, pins and folders</b><br>Separate spaces for work, home and side projects. Pinned tabs stay put, even after you close them.</td>
+    <td width="50%"><img src=".github/assets/command.jpg" alt="Arch command bar searching for design"><br><b>Find anything in a keystroke</b><br>One shortcut searches open tabs, pins, bookmarks and history, and runs quick actions.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/assets/peek.jpg" alt="A link open in a floating Peek window"><br><b>Peek at links</b><br>Shift-click a link to open it in a floating window. Keep it as a tab or close it with Esc.</td>
+    <td width="50%"><img src=".github/assets/downloads.jpg" alt="Downloads tray and Now Playing controls"><br><b>Downloads and media, one click away</b><br>Recent downloads and controls for whatever is playing in other tabs.</td>
+  </tr>
+</table>
+
+Coming from Arc? Arch imports your spaces, pinned tabs, folders and favorites in about a minute.
 
 Arch is an independent project and isn't affiliated with The Browser Company or Arc.
 
