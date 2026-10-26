@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to Arch</title>
+  <link rel="icon" href="icons/32.png">
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+  <main>
+    <div class="intro-row">
+      <header class="hero">
+        <img class="logo" src="icons/logo.png" alt="">
+        <h1>Welcome to Arch</h1>
+        <p class="lede">Spaces, pinned tabs, Peek and the rest of what made Arc great, inside the Chrome you already use. Every Chrome extension keeps working.</p>
+        <a class="link yt" href="https://www.youtube.com/watch?v=4-g84lWQIEY" target="_blank" rel="noopener">Watch on YouTube</a>
+      </header>
+      <figure class="intro">
+        <video id="intro-video" src="media/arch-intro.mp4" poster="media/arch-intro-poster.jpg" muted playsinline controls preload="auto" aria-label="Arch intro video"></video>
+      </figure>
+    </div>
+
+    <section>
+      <h2>Get set up</h2>
+      <ol class="steps">
+        <li class="step">
+          <span class="num">1</span>
+          <div class="body">
+            <h3>Open the sidebar</h3>
+            <p>Click the Arch icon in your toolbar any time, or press <span id="toggle-keys" class="keys"></span>. Tip: pin Arch from the puzzle-piece menu so it's always there.</p>
+          </div>
+          <button class="btn primary" id="open-sidebar">Open sidebar</button>
+        </li>
+        <li class="step" id="step-keys">
+          <span class="num">2</span>
+          <div class="body">
+            <h3>Use <span class="keys"><kbd class="mod-key">⌘</kbd><kbd>S</kbd></span> to show and hide it, like Arc</h3>
+            <p id="keys-help">Chrome only lets you set this yourself. On the shortcuts page, find <b>Arch</b>, click the pencil next to <b>Toggle the Arch sidebar</b>, and press <span class="keys"><kbd class="mod-key">⌘</kbd><kbd>S</kbd></span>.</p>
+          </div>
+          <button class="btn" id="set-toggle-key">Set shortcut</button>
+        </li>
+        <li class="step">
+          <span class="num">3</span>
+          <div class="body">
+            <h3>Move it to the left</h3>
+            <p>In Chrome Settings › Appearance, set <b>Side panel position</b> to <b>Left</b>, just like Arc.</p>
+          </div>
+          <button class="btn" id="open-appearance">Open Appearance</button>
+        </li>
+        <li class="step">
+          <span class="num">4</span>
+          <div class="body">
+            <h3>Bring your Arc setup</h3>
+            <p>Import your spaces, pinned tabs, folders and favorites in about a minute. Arc doesn't need to be running.</p>
+          </div>
+          <button class="btn" id="import-arc">Import from Arc</button>
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <div class="row-head">
+        <h2>Keyboard shortcuts</h2>
+        <button class="link" id="change-keys">Change shortcuts</button>
+      </div>
+      <div class="shortcuts" id="shortcuts"></div>
+    </section>
+
+    <section>
+      <h2>What Arch can do</h2>
+      <div class="grid" id="features"></div>
+    </section>
+
+    <footer>
+      <p><b>Private by design.</b> Arch has no accounts, servers or tracking. Everything stays in Chrome on your computer, plus your own Chrome sync if you turn it on.</p>
+      <p class="dim">Open this page again from the sidebar: Settings › Welcome page. Quick how-tos live in Settings › Tips &amp; shortcuts.</p>
+    </footer>
+  </main>
+  <script src="features.js"></script>
+  <script src="welcome.js"></script>
+</body>
+</html>

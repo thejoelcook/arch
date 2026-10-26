@@ -1,0 +1,44 @@
+:root {
+  --bg: #fbfafe;
+  --ink: #1f1f24;
+  --ink-soft: rgba(31, 31, 36, 0.55);
+  --rule: rgba(0, 0, 0, 0.08);
+  --sel: rgba(125, 85, 192, 0.12);
+  --accent: #7d55c0;
+  --well: rgba(0, 0, 0, 0.05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #25242b;
+    --ink: #ececf1;
+    --ink-soft: rgba(236, 236, 241, 0.55);
+    --rule: rgba(255, 255, 255, 0.09);
+    --sel: rgba(170, 140, 230, 0.2);
+    --accent: #b39ae8;
+    --well: rgba(255, 255, 255, 0.07);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+body { font: 14px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+.bar { display: flex; flex-direction: column; height: 100vh; }
+.field { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.glass { width: 18px; height: 18px; color: var(--ink-soft); flex: none; }
+#q { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 18px; color: var(--ink); }
+#q::placeholder { color: var(--ink-soft); }
+.results { flex: 1; overflow-y: auto; padding: 6px 8px 8px; }
+.section { padding: 10px 10px 4px; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); }
+.item { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 8px; cursor: default; }
+.item.sel { background: var(--sel); }
+.item .ic { width: 18px; height: 18px; flex: none; display: grid; place-items: center; font-size: 15px; color: var(--ink-soft); }
+.item .ic img { width: 16px; height: 16px; border-radius: 3px; }
+.item .ic svg { width: 16px; height: 16px; }
+.item .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .t b { font-weight: 600; }
+.item .meta { flex: none; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); font-size: 12px; }
+.item .tag { flex: none; font-size: 11px; color: var(--ink-soft); padding: 2px 6px; border-radius: 5px; background: var(--well); }
+.empty { padding: 28px; text-align: center; color: var(--ink-soft); }
+.hint { display: flex; gap: 14px; justify-content: flex-end; padding: 7px 14px; border-top: 1px solid var(--rule); font-size: 11.5px; color: var(--ink-soft); }
+kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 5px; margin-right: 3px; border-radius: 4px; background: var(--well); }

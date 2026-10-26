@@ -1,0 +1,86 @@
+:root {
+  --bg: #f7f6fb;
+  --card: #ffffff;
+  --ink: #1d1b26;
+  --ink-soft: #6b6878;
+  --rule: rgba(0, 0, 0, 0.08);
+  --accent: #7d55c0;
+  --accent-ink: #ffffff;
+  --well: rgba(0, 0, 0, 0.05);
+  --hero-a: #e7e7ff;
+  --hero-b: #f5edf9;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17161c;
+    --card: #222129;
+    --ink: #eeedf3;
+    --ink-soft: #a19eae;
+    --rule: rgba(255, 255, 255, 0.08);
+    --accent: #a98be6;
+    --accent-ink: #17161c;
+    --well: rgba(255, 255, 255, 0.07);
+    --hero-a: #262447;
+    --hero-b: #2e2433;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 940px; margin: 0 auto; padding: 32px 24px 64px; }
+
+.intro-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: stretch; margin-bottom: 40px; }
+.hero { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; padding: 28px 30px; border-radius: 20px; background: linear-gradient(170deg, var(--hero-a), var(--hero-b)); }
+.logo { width: 56px; height: 56px; }
+h1 { font-size: 32px; line-height: 1.1; letter-spacing: -0.02em; margin: 14px 0 10px; }
+.lede { font-size: 15px; color: var(--ink-soft); }
+.hero .yt { margin-top: 14px; }
+.intro { margin: 0; display: flex; align-items: center; }
+.intro video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 20px; background: #e9e1f0; box-shadow: 0 0 0 0.5px var(--rule), 0 18px 50px rgba(60, 30, 90, 0.16); }
+@media (max-width: 760px) {
+  .intro-row { grid-template-columns: 1fr; }
+  .hero { align-items: center; text-align: center; }
+}
+
+section { margin-bottom: 44px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin: 0 0 14px 4px; }
+h3 { font-size: 16px; margin: 0 0 3px; }
+p { margin: 0; }
+.row-head { display: flex; align-items: baseline; justify-content: space-between; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.step { display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 0.5px var(--rule), 0 1px 3px rgba(0, 0, 0, 0.04); }
+.step .num { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--well); }
+.step.done .num { background: #34c759; color: #fff; }
+.step .body { flex: 1; min-width: 0; }
+.step p { color: var(--ink-soft); font-size: 14px; }
+
+.btn { flex: none; font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 10px; border: 0; background: var(--well); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.btn:hover { filter: brightness(0.96); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.link { font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); background: none; border: 0; cursor: pointer; padding: 0; }
+.link:hover { text-decoration: underline; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.feature { padding: 16px 18px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 0.5px var(--rule), 0 1px 3px rgba(0, 0, 0, 0.04); }
+.feature .ic { font-size: 22px; line-height: 1; margin-bottom: 10px; }
+.feature p { color: var(--ink-soft); font-size: 14px; }
+
+.shortcuts { border-radius: 16px; background: var(--card); box-shadow: 0 0 0 0.5px var(--rule), 0 1px 3px rgba(0, 0, 0, 0.04); overflow: hidden; }
+.sc { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; font-size: 14px; }
+.sc + .sc { border-top: 0.5px solid var(--rule); }
+.keys { display: inline-flex; gap: 4px; vertical-align: middle; }
+kbd { min-width: 24px; padding: 2px 7px; border-radius: 6px; background: var(--well); box-shadow: inset 0 -1px 0 var(--rule); font: 600 12.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; text-align: center; }
+.unset { color: var(--ink-soft); font-size: 13px; }
+
+footer { padding-top: 8px; border-top: 0.5px solid var(--rule); font-size: 14px; }
+footer p { margin-top: 12px; }
+.dim { color: var(--ink-soft); }
+
+@media (max-width: 640px) {
+  h1 { font-size: 30px; }
+  .step { flex-wrap: wrap; }
+  .step .btn { width: 100%; }
+}

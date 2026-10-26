@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Arch</title>
+  <link rel="stylesheet" href="command.css">
+</head>
+<body>
+  <div class="bar">
+    <div class="field">
+      <svg class="glass" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+      <input id="q" placeholder="Search tabs, pins, history, or type a URL" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="results" class="results" role="listbox"></div>
+    <div class="hint"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span></div>
+  </div>
+  <script src="command.js"></script>
+</body>
+</html>

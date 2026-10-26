@@ -1,0 +1,99 @@
+{
+  "manifest_version": 3,
+  "name": "Arch",
+  "short_name": "Arch",
+  "version": "1.0.1",
+  "description": "A calmer way to browse in Chrome: spaces, pinned tabs, folders, favorites, a command bar, Peek and auto-archive in a sidebar.",
+  "minimum_chrome_version": "121",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "sidePanel",
+    "alarms",
+    "scripting",
+    "favicon",
+    "search",
+    "clipboardWrite",
+    "offscreen",
+    "contextMenus",
+    "debugger"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Arch sidebar",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "commands": {
+    "command-bar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "Open the command bar (try ⌘T or ⌘L)"
+    },
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Command+S"
+      },
+      "description": "Toggle the Arch sidebar"
+    },
+    "next-space": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right",
+        "mac": "MacCtrl+Shift+Right"
+      },
+      "description": "Switch to the next space"
+    },
+    "prev-space": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left",
+        "mac": "MacCtrl+Shift+Left"
+      },
+      "description": "Switch to the previous space"
+    },
+    "new-folder": {
+      "description": "New folder (set ⌘⌥N here)"
+    },
+    "copy-url": {
+      "description": "Copy the current URL (set ⇧⌘C here)"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "peek.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ],
+  "optional_permissions": [
+    "history",
+    "bookmarks",
+    "downloads",
+    "downloads.open"
+  ]
+}
