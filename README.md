@@ -87,3 +87,7 @@ Shift-click a link (or Option-click, set in Settings > Links) to open it in a fl
 ## Credits
 
 Emoji names and keywords come from [Emojibase](https://emojibase.dev) (MIT license). The gear icon is from [Lucide](https://lucide.dev) (ISC license).
+
+## Not affiliated with Arc
+
+Arch is an independent project made by Joel Cook. It isn't affiliated with, endorsed by or sponsored by The Browser Company, Arc or Google. Arc is a trademark of The Browser Company, and Chrome is a trademark of Google LLC.
