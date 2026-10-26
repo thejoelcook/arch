@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=4-g84lWQIEY"><img src=".github/assets/video.jpg" alt="Watch the 55-second tour of Arch on YouTube" width="720"></a>
+  <a href="https://www.youtube.com/watch?v=4-g84lWQIEY"><img src=".github/assets/video.gif" alt="Arc plus chrome merging into Arch. Click to watch the 55-second tour on YouTube" width="720"></a>
 </p>
 
 ## A look inside
