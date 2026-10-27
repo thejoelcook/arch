@@ -91,7 +91,26 @@ function faviconFor(pageUrl, tabIcon) {
   u.searchParams.set('size', '32');
   return u.toString();
 }
-const favImg = (pageUrl, tabIcon) => h('img', { class: 'fi', src: faviconFor(pageUrl, tabIcon), alt: '' });
+// Chrome's own copy of a page's icon, which always loads in the sidebar.
+function chromeFavicon(pageUrl) {
+  const u = new URL(chrome.runtime.getURL('/_favicon/'));
+  u.searchParams.set('pageUrl', pageUrl || 'about:blank');
+  u.searchParams.set('size', '32');
+  return u.toString();
+}
+// Some sites block their icon from loading anywhere but their own pages (a cross-origin
+// resource policy), which leaves a broken image. Fall back to Chrome's copy, then a saved one.
+function iconImg(pageUrl, tabIcon, cls) {
+  return h('img', { class: cls || null, src: faviconFor(pageUrl, tabIcon), alt: '', 'data-page': pageUrl || '' });
+}
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset || img.dataset.page == null || img.dataset.fellBack) return;
+  img.dataset.fellBack = '1';
+  const saved = S.icons && img.dataset.page && S.icons[img.dataset.page.split('#')[0]];
+  img.src = saved || chromeFavicon(img.dataset.page);
+}, true);
+const favImg = (pageUrl, tabIcon) => iconImg(pageUrl, tabIcon, 'fi');
 
 // ---------- optional permissions ----------
 // The downloads tray asks for permission the first time you use it, so installing Arch
@@ -511,7 +530,7 @@ function renderFavorites() {
         t && '-',
         t && { label: 'Close', danger: true, run: () => chrome.tabs.remove(t.id) },
       ].filter(Boolean)),
-    }, h('img', { src: faviconFor(url, t && t.favIconUrl), alt: '' }), t ? audioButton(t, 'fav-audio') : null);
+    }, iconImg(url, t && t.favIconUrl), t ? audioButton(t, 'fav-audio') : null);
     makeDraggable(b, t ? { kind: 'tab', tabId: t.id, fav: true, favId } : { kind: 'fav', favId }, url);
     const after = (e) => { const r = b.getBoundingClientRect(); return e.clientX >= r.left + r.width / 2; };
     b.addEventListener('dragover', (e) => {
@@ -1954,7 +1973,7 @@ function npCard(tab, info) {
   return h('div', { class: 'np-card', 'data-tab': String(tab.id) },
     h('div', { class: 'np-top' },
       h('button', { class: 'np-art', title: 'Go to tab', onclick: goTo },
-        info.art ? h('img', { src: info.art, alt: '' }) : h('img', { class: 'fav', src: faviconFor(tab.url, tab.favIconUrl), alt: '' })),
+        info.art ? h('img', { src: info.art, alt: '' }) : iconImg(tab.url, tab.favIconUrl, 'fav')),
       h('button', { class: 'np-text', title: 'Go to tab', onclick: goTo },
         h('span', { class: 'np-title' }, title), h('span', { class: 'np-sub' }, sub)),
       btn('np-x', 'Stop and dismiss', NP_ICON.close, async () => { await npQuery(tab.id, 'pause'); await npForget(tab.id); npDraw(); })),
