@@ -502,8 +502,21 @@ chrome.alarms.onAlarm.addListener((a) => {
 
 // Only a fresh New Tab page jumps to the top. Tabs opened from links stay beside the page that
 // opened them, and tabs Chrome restores at startup keep their order.
-const isBlankNewTab = (t) => /^(chrome:\/\/newtab\/?|chrome:\/\/new-tab-page\/?|about:blank)?$/.test(t.pendingUrl || t.url || '');
-chrome.tabs.onCreated.addListener((t) => serial(() => adopt(t.id, { top: t.openerTabId == null && isBlankNewTab(t) })));
+// Chrome records the tab you were on as the opener of a ⌘T tab, so a New Tab page counts even
+// with an opener. about:blank only counts without one (a link that opens a blank popup has one).
+const NEW_TAB_PAGE = /^(chrome:\/\/newtab\/?|chrome:\/\/new-tab-page(-third-party)?\/?|https:\/\/www\.google\.[a-z.]+\/_\/chrome\/newtab.*)$/;
+const isNewTabPage = (t) => NEW_TAB_PAGE.test(t.pendingUrl || t.url || '') || (!t.openerTabId && /^(about:blank)?$/.test(t.pendingUrl || t.url || ''));
+const maybeNewTab = new Set(); // created with no address yet; decide once it has one
+chrome.tabs.onCreated.addListener((t) => {
+  if (!t.pinned && !t.url && !t.pendingUrl && t.openerTabId) maybeNewTab.add(t.id);
+  serial(() => adopt(t.id, { top: isNewTabPage(t) }));
+});
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (!maybeNewTab.has(tabId) || !(info.url || info.status)) return;
+  maybeNewTab.delete(tabId);
+  if (!tab.pinned && NEW_TAB_PAGE.test(tab.pendingUrl || tab.url || '') && tab.groupId !== -1) serial(() => moveToTopOfSpace(tabId, tab.groupId));
+});
+chrome.tabs.onRemoved.addListener((tabId) => maybeNewTab.delete(tabId));
 // A favorite that gets un-favorited joins the active space, like Arc.
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.pinned === false) serial(() => adopt(tabId)); });
 
