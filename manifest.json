@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Arch",
   "short_name": "Arch",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A calmer way to browse in Chrome: spaces, pinned tabs, folders, favorites, a command bar, Peek and auto-archive in a sidebar.",
   "minimum_chrome_version": "121",
   "permissions": [

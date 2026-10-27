@@ -234,6 +234,49 @@ function makeDraggable(el, payload, dragUrl) {
   });
 }
 
+// Today's tabs: drag a tab above or below another to reorder, or drop a pinned item between
+// tabs to unpin it right there. The list follows Chrome's tab order inside the space's group.
+function makeTabDropTarget(el, tab) {
+  const posFor = (e) => { const r = el.getBoundingClientRect(); return e.clientY < r.top + r.height / 2 ? 'before' : 'after'; };
+  const accepts = (d) => d && ((d.kind === 'tab' && !d.fav && d.tabId !== tab.id) || d.kind === 'item');
+  el.addEventListener('dragover', (e) => {
+    if (!accepts(drag)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    clearDropMarks();
+    el.classList.add(`drop-${posFor(e)}`);
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-before', 'drop-after'));
+  el.addEventListener('drop', async (e) => {
+    if (!accepts(drag)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const d = drag; const pos = posFor(e);
+    drag = null;
+    clearDropMarks();
+    let movingId = d.tabId;
+    if (d.kind === 'item') {
+      movingId = S.pinnedTabs[d.id];
+      await unpinItem(d.id);
+      if (movingId == null) return;
+    }
+    await moveTabNextTo(Number(movingId), tab.id, pos);
+  });
+}
+
+async function moveTabNextTo(tabId, targetId, pos) {
+  const [moving, target] = await Promise.all([chrome.tabs.get(tabId).catch(() => null), chrome.tabs.get(targetId).catch(() => null)]);
+  if (!moving || !target || moving.windowId !== target.windowId) return;
+  let index = pos === 'before' ? target.index : target.index + 1;
+  if (moving.index < index) index -= 1;
+  if (moving.index !== index) await chrome.tabs.move(tabId, { index }).catch(() => {});
+  // Moving to the edge of a group can drop a tab out of it; keep it in the target's space.
+  const moved = await chrome.tabs.get(tabId).catch(() => null);
+  if (moved && target.groupId !== -1 && moved.groupId !== target.groupId) {
+    await chrome.tabs.group({ groupId: target.groupId, tabIds: [tabId] }).catch(() => {});
+  }
+}
+
 function makeItemDropTarget(el, item) {
   const posFor = (e) => {
     const r = el.getBoundingClientRect();
@@ -1031,6 +1074,7 @@ function renderTabRow(tab, space) {
   audioButton(tab),
   h('button', { class: 'x', title: 'Close', html: ICON.x, onclick: (e) => { e.stopPropagation(); chrome.tabs.remove(tab.id); } }));
   makeDraggable(row, { kind: 'tab', tabId: tab.id }, tab.url);
+  makeTabDropTarget(row, tab);
   S.order.push(keyFor('tab', tab.id));
   return row;
 }
