@@ -187,6 +187,10 @@ async function openItem(windowId, itemId) {
   }
   if (!tab) tab = await chrome.tabs.create({ windowId, url: item.url, active: true });
 
+  if (tab.windowId !== windowId && !tab.pinned) {
+    await chrome.tabs.move(tab.id, { windowId, index: -1 }).catch(() => {});
+    tab = (await chrome.tabs.get(tab.id).catch(() => null)) || tab;
+  }
   await patchSession('pinnedTabs', (m) => ({ ...m, [itemId]: tab.id }));
   if (tab.windowId === windowId && !tab.pinned) {
     const g = await findGroup(windowId, space);
@@ -367,11 +371,24 @@ async function importArc(windowId, { spaces: incoming, favorites = [], replace, 
     await chrome.storage.local.set({ spaces: merged });
   }
 
-  if (openFavorites && favorites.length) {
-    const pinned = await chrome.tabs.query({ windowId, pinned: true });
+  if (favorites.length) {
+    await linkFavorites();
+    const st = await favState();
+    const list = st.favorites || [];
+    const added = [];
     for (const f of favorites) {
-      if (pinned.some((t) => sameUrl(t.url || t.pendingUrl, f.url))) continue;
-      await chrome.tabs.create({ windowId, url: f.url, pinned: true, active: false }).catch(() => {});
+      if (!f || !f.url || list.some((x) => sameUrl(x.url, f.url))) continue;
+      const fav = { id: uid(), url: f.url, title: f.title || f.url };
+      list.push(fav); added.push(fav);
+    }
+    await saveFavs(list, null);
+    if (openFavorites) {
+      for (const fav of added) {
+        const t = await chrome.tabs.create({ windowId, url: fav.url, pinned: true, active: false }).catch(() => null);
+        if (t) st.favTabs[t.id] = fav.id;
+      }
+      await saveFavs(null, st.favTabs);
+      await sortPinned(windowId, list, st.favTabs);
     }
   }
   await relinkPinned();
@@ -977,6 +994,172 @@ async function restoreBackup(windowId, data) {
 
 // ---------- messages from the sidebar ----------
 
+// ---------- favorites, shared by every window ----------
+// Favorites live in storage.local `favorites` ([{ id, url, title }]) so every window shows the
+// same tiles, like Arc. Each window opens a favorite as a Chrome pinned tab only when you click
+// it; storage.session `favTabs` ({ tabId: favId }) links open tabs to their favorite.
+// Pinning or unpinning in Chrome's own UI keeps the list in step through the tab events below.
+
+async function favState() {
+  const [{ favorites }, { favTabs }] = await Promise.all([
+    chrome.storage.local.get('favorites'), chrome.storage.session.get('favTabs')]);
+  return { favorites: favorites || null, favTabs: favTabs || {} };
+}
+async function saveFavs(favorites, favTabs) {
+  if (favorites) await chrome.storage.local.set({ favorites });
+  if (favTabs) await chrome.storage.session.set({ favTabs });
+}
+const favHost = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
+
+// Finds the favorite an open pinned tab belongs to: exact address first, then same site.
+function matchFav(favorites, url, taken) {
+  const free = favorites.filter((f) => !taken.has(f.id));
+  return free.find((f) => sameUrl(f.url, url)) || free.find((f) => favHost(f.url) && favHost(f.url) === favHost(url)) || null;
+}
+
+// Links every window's pinned tabs to favorites, adding any pinned tab that has none.
+async function linkFavorites() {
+  let { favorites, favTabs } = await favState();
+  const wins = await chrome.windows.getAll({ windowTypes: ['normal'], populate: true });
+  const focused = wins.find((w) => w.focused);
+  if (focused) wins.unshift(...wins.splice(wins.indexOf(focused), 1));
+  const alive = new Set(wins.flatMap((w) => w.tabs.map((t) => t.id)));
+  favorites = favorites || [];
+  const next = {};
+  for (const [tid, fid] of Object.entries(favTabs)) if (alive.has(Number(tid)) && favorites.some((f) => f.id === fid)) next[tid] = fid;
+  for (const w of wins) {
+    const pinned = w.tabs.filter((t) => t.pinned).sort((a, b) => a.index - b.index);
+    const taken = new Set(pinned.map((t) => next[t.id]).filter(Boolean));
+    for (const t of pinned) {
+      if (next[t.id]) continue;
+      const url = t.url || t.pendingUrl;
+      if (!url) continue;
+      let f = matchFav(favorites, url, taken);
+      if (!f) { f = { id: uid(), url, title: t.title || url }; favorites.push(f); }
+      next[t.id] = f.id;
+      taken.add(f.id);
+    }
+  }
+  await saveFavs(favorites, next);
+}
+
+// Puts a window's pinned tabs in favorites order.
+async function sortPinned(windowId, favorites, favTabs) {
+  const order = new Map(favorites.map((f, i) => [f.id, i]));
+  const pinned = (await chrome.tabs.query({ windowId, pinned: true })).sort((a, b) => a.index - b.index);
+  const want = pinned.slice().sort((a, b) => (order.get(favTabs[a.id]) ?? 1e9) - (order.get(favTabs[b.id]) ?? 1e9));
+  for (let i = 0; i < want.length; i++) {
+    if (want[i].id !== pinned[i].id) {
+      await chrome.tabs.move(want[i].id, { index: i }).catch(() => {});
+      const j = pinned.indexOf(want[i]);
+      pinned.splice(j, 1); pinned.splice(i, 0, want[i]);
+    }
+  }
+}
+async function sortAllPinned() {
+  const { favorites, favTabs } = await favState();
+  for (const w of await chrome.windows.getAll({ windowTypes: ['normal'] })) await sortPinned(w.id, favorites || [], favTabs);
+}
+
+async function openFavorite(windowId, favId) {
+  const { favorites, favTabs } = await favState();
+  const f = (favorites || []).find((x) => x.id === favId);
+  if (!f) return;
+  const pinned = await chrome.tabs.query({ windowId, pinned: true });
+  let tab = pinned.find((t) => favTabs[t.id] === favId);
+  if (!tab) {
+    tab = await chrome.tabs.create({ windowId, url: f.url, pinned: true, active: true });
+    favTabs[tab.id] = favId;
+    await saveFavs(null, favTabs);
+    await sortPinned(windowId, favorites, favTabs);
+  }
+  await chrome.tabs.update(tab.id, { active: true });
+}
+
+async function addFavorite(windowId, { tabId, url, title, index }) {
+  await linkFavorites();
+  let { favorites, favTabs } = await favState();
+  let tab = tabId != null ? await chrome.tabs.get(tabId).catch(() => null) : null;
+  if (tab && favTabs[tab.id]) { // already a favorite: just move it
+    return reorderFavorite(favTabs[tab.id], index);
+  }
+  const f = { id: uid(), url: tab ? (tab.url || tab.pendingUrl) : url, title: tab ? tab.title : (title || url) };
+  if (!f.url) return;
+  favorites.splice(index == null ? favorites.length : Math.max(0, Math.min(index, favorites.length)), 0, f);
+  if (tab) {
+    if (tab.windowId !== windowId) await chrome.tabs.move(tab.id, { windowId, index: -1 }).catch(() => {});
+    favTabs[tab.id] = f.id;
+    await saveFavs(favorites, favTabs);
+    await chrome.tabs.update(tab.id, { pinned: true });
+  } else await saveFavs(favorites, null);
+  await sortAllPinned();
+  return f.id;
+}
+
+async function reorderFavorite(favId, index) {
+  const { favorites, favTabs } = await favState();
+  const from = (favorites || []).findIndex((f) => f.id === favId);
+  if (from < 0) return;
+  const [f] = favorites.splice(from, 1);
+  if (index > from) index -= 1;
+  favorites.splice(Math.max(0, Math.min(index ?? favorites.length, favorites.length)), 0, f);
+  await saveFavs(favorites, null);
+  for (const w of await chrome.windows.getAll({ windowTypes: ['normal'] })) await sortPinned(w.id, favorites, favTabs);
+}
+
+// Removes a favorite everywhere. Its open tabs stay open and join the active space.
+async function removeFavorite(favId) {
+  const { favorites, favTabs } = await favState();
+  const tabIds = Object.entries(favTabs).filter(([, f]) => f === favId).map(([t]) => Number(t));
+  for (const t of tabIds) delete favTabs[t];
+  await saveFavs((favorites || []).filter((f) => f.id !== favId), favTabs);
+  for (const t of tabIds) await chrome.tabs.update(t, { pinned: false }).catch(() => {});
+}
+
+// Chrome's own pin/unpin, new pinned tabs (session restore, Chrome menus) and reordering.
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.pinned === true) serial(linkFavorites);
+  if (info.pinned === false) serial(async () => {
+    const { favTabs } = await favState();
+    const favId = favTabs[tabId];
+    if (favId) await removeFavorite(favId); // unpinned in Chrome = removed from favorites
+  });
+});
+chrome.tabs.onCreated.addListener((t) => { if (t.pinned) serial(linkFavorites); });
+chrome.tabs.onRemoved.addListener((tabId) => serial(async () => {
+  const { favTabs } = await favState();
+  if (favTabs[tabId]) { delete favTabs[tabId]; await saveFavs(null, favTabs); } // closing keeps the favorite
+}));
+chrome.tabs.onMoved.addListener((tabId, info) => serial(async () => {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || !tab.pinned) return;
+  const { favorites, favTabs } = await favState();
+  if (!favorites) return;
+  // Reorder the shared list to match this window's pinned order, then mirror it to other windows.
+  const seq = (await chrome.tabs.query({ windowId: info.windowId, pinned: true }))
+    .sort((a, b) => a.index - b.index).map((t) => favTabs[t.id]).filter(Boolean);
+  const slots = favorites.map((f, i) => (seq.includes(f.id) ? i : -1)).filter((i) => i >= 0);
+  const byId = new Map(favorites.map((f) => [f.id, f]));
+  const next = favorites.slice();
+  slots.forEach((slot, k) => { next[slot] = byId.get(seq[k]); });
+  if (next.every((f, i) => f === favorites[i])) return;
+  await saveFavs(next, null);
+  for (const w of await chrome.windows.getAll({ windowTypes: ['normal'] })) if (w.id !== info.windowId) await sortPinned(w.id, next, favTabs);
+}));
+chrome.runtime.onStartup.addListener(() => serial(linkFavorites));
+chrome.runtime.onInstalled.addListener(() => serial(linkFavorites));
+
+// A space's tab that's open in another window comes over to this one, like Arc's shared sidebar.
+async function bringTab(windowId, tabId, spaceId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab) return;
+  if (tab.windowId !== windowId) await chrome.tabs.move(tabId, { windowId, index: -1 });
+  const { spaces } = await local();
+  const space = spaces.find((s) => s.id === spaceId);
+  if (space) await addTabsToSpace([tabId], windowId, space);
+  await chrome.tabs.update(tabId, { active: true });
+}
+
 const handlers = {
   switchSpace: (m) => switchSpace(m.windowId, m.spaceId),
   openItem: (m) => openItem(m.windowId, m.itemId),
@@ -995,6 +1178,12 @@ const handlers = {
   screenshot: (m) => captureFullPage(m.windowId),
   restoreBackup: (m) => restoreBackup(m.windowId, m.data),
   openCommandBar: async (m) => openCommandBar(m.windowId != null ? { windowId: m.windowId } : null),
+  favInit: () => linkFavorites(),
+  openFavorite: (m) => openFavorite(m.windowId, m.favId),
+  addFavorite: (m) => addFavorite(m.windowId, m),
+  reorderFavorite: (m) => reorderFavorite(m.favId, m.index),
+  removeFavorite: (m) => removeFavorite(m.favId),
+  bringTab: (m) => bringTab(m.windowId, m.tabId, m.spaceId),
   newTab: async (m) => {
     const t = await chrome.tabs.create({ windowId: m.windowId, active: true, url: m.url });
     await adopt(t.id);

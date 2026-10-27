@@ -159,12 +159,18 @@ async function mutateSpace(spaceId, fn) {
 // ---------- state ----------
 
 async function load() {
-  const [l, ss, tabs, groups] = await Promise.all([
-    chrome.storage.local.get(['spaces', 'archive', 'settings', 'syncStatus', 'icons']),
-    chrome.storage.session.get(['pinnedTabs', 'activeSpace', 'groupIds']),
-    chrome.tabs.query({ windowId: S.windowId }),
-    chrome.tabGroups.query({ windowId: S.windowId }),
+  const [l, ss, allTabs, allGroups] = await Promise.all([
+    chrome.storage.local.get(['spaces', 'archive', 'settings', 'syncStatus', 'icons', 'favorites']),
+    chrome.storage.session.get(['pinnedTabs', 'activeSpace', 'groupIds', 'favTabs']),
+    chrome.tabs.query({ windowType: 'normal' }),
+    chrome.tabGroups.query({}),
   ]);
+  const tabs = allTabs.filter((t) => t.windowId === S.windowId);
+  const groups = allGroups.filter((g) => g.windowId === S.windowId);
+  S.otherTabs = allTabs.filter((t) => t.windowId !== S.windowId && !t.pinned && t.groupId !== -1);
+  S.otherGroups = allGroups.filter((g) => g.windowId !== S.windowId);
+  S.favorites = l.favorites || null;
+  S.favTabs = ss.favTabs || {};
   S.spaces = l.spaces || [];
   S.archive = l.archive || [];
   S.syncStatus = l.syncStatus || null;
@@ -276,8 +282,16 @@ async function dropOnPinned(target) {
   const space = currentSpace();
   if (!d || !space) return;
 
+  if (d.kind === 'fav') {
+    const f = (S.favorites || []).find((x) => x.id === d.favId);
+    if (!f) return;
+    const item = { id: uid(), type: 'link', title: f.title || f.url, url: f.url };
+    await mutateSpace(space.id, (s) => insertAt(s.items, item, target));
+    await send('removeFavorite', { favId: f.id });
+    return;
+  }
   if (d.kind === 'tab') {
-    if (d.fav) await chrome.tabs.update(d.tabId, { pinned: false }).catch(() => {});
+    if (d.fav) await (d.favId ? send('removeFavorite', { favId: d.favId }) : chrome.tabs.update(d.tabId, { pinned: false })).catch(() => {});
     const tab = tabById(d.tabId);
     const url = tab && (tab.url || tab.pendingUrl);
     if (!url || url.startsWith('chrome://newtab')) return;
@@ -394,16 +408,8 @@ async function copyUrl(url) {
   try { await navigator.clipboard.writeText(url); toast('Copied URL'); return true; } catch (_) { toast('Couldn’t copy'); return false; }
 }
 
-async function moveFavorite(tabId, index) {
-  const tab = tabById(tabId);
-  if (!tab) return;
-  if (tab.index < index) index -= 1;
-  if (tab.index !== index) await chrome.tabs.move(tabId, { index }).catch(() => {});
-}
-
 async function addTabToFavorites(tabId, index) {
-  await chrome.tabs.update(tabId, { pinned: true });
-  if (index != null) { await load(); await moveFavorite(tabId, index); }
+  await send('addFavorite', { tabId, index });
 }
 
 async function addItemToFavorites(itemId, index) {
@@ -414,41 +420,59 @@ async function addItemToFavorites(itemId, index) {
   const tab = tabId != null ? tabById(tabId) : null;
   await unpinItem(itemId);
   if (tab) return addTabToFavorites(tab.id, index);
-  const created = await chrome.tabs.create({ windowId: S.windowId, url: loc.item.url, pinned: true, active: false });
-  if (index != null) { await load(); await moveFavorite(created.id, index); }
+  await send('addFavorite', { url: loc.item.url, title: loc.item.title, index });
 }
 
 function dropOnFavorites(d, index) {
   if (!d) return;
-  if (d.kind === 'tab' && d.fav) return moveFavorite(d.tabId, index);
+  if (d.favId) return send('reorderFavorite', { favId: d.favId, index });
   if (d.kind === 'tab') return addTabToFavorites(d.tabId, index);
   if (d.kind === 'item') return addItemToFavorites(d.id, index);
 }
 
+// Tiles come from the shared favorites list. A favorite that isn't open in this window yet
+// shows dimmed and opens here as a pinned tab when clicked.
+function favoriteTiles() {
+  const pinned = S.tabs.filter((t) => t.pinned);
+  const used = new Set();
+  const tiles = (S.favorites || []).map((f) => {
+    const tab = pinned.find((t) => !used.has(t.id) && S.favTabs[t.id] === f.id) || null;
+    if (tab) used.add(tab.id);
+    return { fav: f, tab };
+  });
+  // Pinned tabs the background hasn't linked yet (just pinned from Chrome's own menu).
+  pinned.filter((t) => !used.has(t.id) && !S.favTabs[t.id]).forEach((t) => tiles.push({ fav: null, tab: t }));
+  return tiles;
+}
+
 function renderFavorites() {
-  const favs = S.tabs.filter((t) => t.pinned);
+  const tiles = favoriteTiles();
   const zone = h('div', { class: 'favorites' });
   // 6-column grid: tiles span 2 (thirds). A last row with two tiles spans 3 each (halves).
-  const twoUp = favs.length % 3 === 2;
-  favs.forEach((t, i) => {
-    const half = twoUp && i >= favs.length - 2;
+  const twoUp = tiles.length % 3 === 2;
+  tiles.forEach(({ fav, tab: t }, i) => {
+    const half = twoUp && i >= tiles.length - 2;
+    const url = t ? t.url : fav.url;
+    const favId = fav && fav.id;
+    const remove = () => (favId ? send('removeFavorite', { favId }) : chrome.tabs.update(t.id, { pinned: false }));
     const b = h('button', {
-      class: `fav${t.active ? ' active' : ''}`, title: t.title, style: `grid-column: span ${half ? 3 : 2}`,
-      onclick: () => chrome.tabs.update(t.id, { active: true }),
-      onauxclick: (e) => { if (e.button === 1) chrome.tabs.remove(t.id); },
+      class: `fav${t && t.active ? ' active' : ''}${t ? '' : ' unloaded'}`, title: (t ? t.title : fav.title) || url,
+      style: `grid-column: span ${half ? 3 : 2}`,
+      onclick: () => (t ? chrome.tabs.update(t.id, { active: true }) : send('openFavorite', { favId })),
+      onauxclick: (e) => { if (e.button === 1 && t) chrome.tabs.remove(t.id); },
       oncontextmenu: (e) => showMenu(e, [
-        muteMenuEntry(t),
-        { label: 'Copy link', run: () => copyUrl(t.url) },
-        { label: 'Pin to this space', run: () => { drag = { kind: 'tab', tabId: t.id, fav: true }; dropOnPinned(null); } },
-        { label: 'Remove from favorites', run: () => chrome.tabs.update(t.id, { pinned: false }) },
-        '-',
-        { label: 'Close', danger: true, run: () => chrome.tabs.remove(t.id) },
-      ]),
-    }, h('img', { src: faviconFor(t.url, t.favIconUrl), alt: '' }), audioButton(t, 'fav-audio'));
-    makeDraggable(b, { kind: 'tab', tabId: t.id, fav: true }, t.url);
+        t && muteMenuEntry(t),
+        { label: 'Copy link', run: () => copyUrl(url) },
+        { label: 'Pin to this space', run: () => { drag = t ? { kind: 'tab', tabId: t.id, fav: true, favId } : { kind: 'fav', favId }; dropOnPinned(null); } },
+        { label: 'Remove from favorites', run: remove },
+        t && '-',
+        t && { label: 'Close', danger: true, run: () => chrome.tabs.remove(t.id) },
+      ].filter(Boolean)),
+    }, h('img', { src: faviconFor(url, t && t.favIconUrl), alt: '' }), t ? audioButton(t, 'fav-audio') : null);
+    makeDraggable(b, t ? { kind: 'tab', tabId: t.id, fav: true, favId } : { kind: 'fav', favId }, url);
     const after = (e) => { const r = b.getBoundingClientRect(); return e.clientX >= r.left + r.width / 2; };
     b.addEventListener('dragover', (e) => {
-      if (!drag || (drag.fav && drag.tabId === t.id)) return;
+      if (!drag || (drag.favId && drag.favId === favId)) return;
       e.preventDefault(); e.stopPropagation();
       clearDropMarks();
       b.classList.add(after(e) ? 'drop-right' : 'drop-left');
@@ -457,11 +481,11 @@ function renderFavorites() {
     b.addEventListener('drop', (e) => {
       e.preventDefault(); e.stopPropagation();
       const d = drag; drag = null; clearDropMarks();
-      dropOnFavorites(d, t.index + (after(e) ? 1 : 0));
+      dropOnFavorites(d, i + (after(e) ? 1 : 0));
     });
     zone.append(b);
   });
-  makeZone(zone, (d) => dropOnFavorites(d, favs.length), (d) => !(d.fav));
+  makeZone(zone, (d) => dropOnFavorites(d, tiles.length), (d) => !(d.fav || d.kind === 'fav'));
   return zone;
 }
 
@@ -1011,11 +1035,19 @@ function renderTabRow(tab, space) {
   return row;
 }
 
+// This space's tabs that are open in other windows, so a new window still shows them.
+function otherWindowTabs(space) {
+  const title = groupTitle(space);
+  const gids = new Set((S.otherGroups || []).filter((g) => g.title === title).map((g) => g.id));
+  const mapped = new Set(Object.values(S.pinnedTabs).map(Number));
+  return (S.otherTabs || []).filter((t) => gids.has(t.groupId) && !mapped.has(t.id));
+}
+
 function renderMain(space) {
   const scroll = h('div', { class: 'scroll' });
 
   // Favorites: Chrome's own pinned tabs, shown as icon tiles like Arc's favorites.
-  if (S.tabs.some((t) => t.pinned)) scroll.append(renderFavorites());
+  if ((S.favorites && S.favorites.length) || S.tabs.some((t) => t.pinned)) scroll.append(renderFavorites());
 
   // Space name, like Arc's label above the pinned section.
   scroll.append(h('div', {
@@ -1061,7 +1093,22 @@ function renderMain(space) {
   const todayZone = h('div', { class: 'zone' },
     h('div', { class: 'row new-tab', onclick: () => send('newTab') }, h('span', { class: 'plus', html: ICON.plus }), h('span', { class: 'title' }, 'New Tab')),
     today.map((t) => renderTabRow(t, space)));
-  makeZone(todayZone, (d) => (d.fav ? chrome.tabs.update(d.tabId, { pinned: false }) : unpinItem(d.id)), (d) => d.kind === 'item' || d.fav);
+  const elsewhere = otherWindowTabs(space);
+  if (elsewhere.length) {
+    todayZone.append(h('div', { class: 'elsewhere-label' }, 'In other windows'),
+      ...elsewhere.map((t) => h('div', {
+        class: 'row tab elsewhere', title: `${t.url || ''}\nClick to bring it into this window`,
+        onclick: () => send('bringTab', { tabId: t.id, spaceId: space.id }),
+        oncontextmenu: (e) => showMenu(e, [
+          { label: 'Bring to this window', run: () => send('bringTab', { tabId: t.id, spaceId: space.id }) },
+          { label: 'Go to its window', run: () => { chrome.tabs.update(t.id, { active: true }); chrome.windows.update(t.windowId, { focused: true }); } },
+          { label: 'Copy link', run: () => copyUrl(t.url || '') },
+          '-',
+          { label: 'Close', danger: true, run: () => chrome.tabs.remove(t.id) },
+        ]),
+      }, favImg(t.url || t.pendingUrl, t.favIconUrl), h('span', { class: 'title' }, t.title || t.pendingUrl || 'New Tab'))));
+  }
+  makeZone(todayZone, (d) => (d.favId ? send('removeFavorite', { favId: d.favId }) : d.fav ? chrome.tabs.update(d.tabId, { pinned: false }) : unpinItem(d.id)), (d) => d.kind === 'item' || d.fav || d.kind === 'fav');
   scroll.append(todayZone);
 
   // Swipe sideways on a trackpad to change spaces.
@@ -1139,7 +1186,7 @@ function backupData() {
   return {
     app: 'Arch', format: 1, version: chrome.runtime.getManifest().version, exportedAt: new Date().toISOString(),
     spaces: S.spaces,
-    favorites: S.tabs.filter((t) => t.pinned && t.url).map((t) => ({ title: t.title, url: t.url })),
+    favorites: (S.favorites || []).map((f) => ({ title: f.title, url: f.url })),
     settings: S.settings,
     archive: S.archive,
   };
@@ -1951,6 +1998,7 @@ function refresh() {
   };
   connect();
   await load();
+  if (!S.favorites) { await send('favInit').catch(() => {}); await load(); } // first run: build the shared list from pinned tabs
   render();
   chrome.storage.local.get('arcImportPending').then(async ({ arcImportPending: t }) => {
     if (!t) return;

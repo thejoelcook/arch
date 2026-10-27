@@ -480,3 +480,11 @@ html:not(.tinted) .url-pill.editing, html:not(.tinted) .search:focus, html:not(.
 .arc-auto .or { margin-bottom: 6px; }
 .textlink { display: inline; padding: 0; background: none; font: inherit; color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .textlink:hover { color: var(--ink); }
+
+/* favorites that aren't open in this window yet */
+.fav.unloaded img { opacity: 0.55; filter: saturate(0.7); }
+.fav.unloaded:hover img { opacity: 1; filter: none; }
+/* this space's tabs in other windows */
+.elsewhere-label { margin: 10px 10px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-soft); }
+.row.tab.elsewhere { opacity: 0.6; }
+.row.tab.elsewhere:hover { opacity: 1; }

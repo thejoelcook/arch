@@ -54,7 +54,8 @@ Chrome may show a "Disable developer mode extensions" warning when it starts. Th
 
 - **Spaces** are Chrome tab groups under the hood, one per space. Switching a space expands its group and collapses the rest. New tabs join the active space. Switch with the dock, `Alt+Shift+←/→` (`Ctrl+Shift` on Mac), or a sideways two-finger swipe in the sidebar.
 - **Pinned** items belong to a space and survive closing. Drag a tab into the Pinned area to pin it, drag pins into folders, drag a pin down to Today to unpin. Closing a pinned tab keeps the pin. Right-click a pin to jump back to its original URL or re-pin the current one.
-- **Favorites** are Chrome's own pinned tabs, shown as icon tiles at the top.
+- **Favorites** are shared by every window, like Arc. A favorite opens as a Chrome pinned tab the first time you click it in a window; until then its tile is dimmed. Closing a favorite's tab keeps the favorite; right-click › Remove from favorites removes it everywhere.
+- **New windows** show the same spaces, pins and favorites. Tabs from the current space that are open in another window appear under **In other windows**; click one to bring it into this window.
 - **Auto-archive** closes tabs you haven't touched in 12 hours by default (change it in Settings). Archived tabs are searchable from the box icon in the dock, and click to restore. Pinned tabs, favorites and tabs playing audio are never archived.
 - **Picture-in-picture**: a video playing with sound floats when you switch away from its tab and closes when you return. Chrome may ask once per site; manage it in Site settings under Automatic picture-in-picture.
 
