@@ -156,14 +156,28 @@ async function switchSpace(windowId, spaceId) {
 }
 
 // New tabs join whichever space is active in their window.
-async function adopt(tabId) {
+async function adopt(tabId, { top = false } = {}) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (!tab || tab.pinned || tab.groupId !== -1) return;
+  if (!tab || tab.pinned) return;
+  if (tab.groupId !== -1) { // Chrome already put it in a group (a space)
+    if (top) await moveToTopOfSpace(tab.id, tab.groupId);
+    return;
+  }
   const win = await chrome.windows.get(tab.windowId).catch(() => null);
   if (!win || win.type !== 'normal') return;
   const { spaces } = await local();
   const s = await getActiveSpace(tab.windowId, spaces);
-  if (s) await addTabsToSpace([tab.id], tab.windowId, s);
+  if (!s) return;
+  const gid = await addTabsToSpace([tab.id], tab.windowId, s);
+  if (top && gid != null) await moveToTopOfSpace(tab.id, gid);
+}
+
+// New tabs go to the top of the space's tab list, like Arc. The list follows Chrome's tab
+// order inside the space's group, so the tab moves to the group's first slot.
+async function moveToTopOfSpace(tabId, groupId) {
+  const inGroup = (await chrome.tabs.query({ groupId })).sort((a, b) => a.index - b.index);
+  const first = inGroup[0];
+  if (first && first.id !== tabId) await chrome.tabs.move(tabId, { index: first.index }).catch(() => {});
 }
 
 // ---------- pinned items ----------
@@ -486,7 +500,10 @@ chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'orbit-archive') serial(runAutoArchive);
 });
 
-chrome.tabs.onCreated.addListener((t) => serial(() => adopt(t.id)));
+// Only a fresh New Tab page jumps to the top. Tabs opened from links stay beside the page that
+// opened them, and tabs Chrome restores at startup keep their order.
+const isBlankNewTab = (t) => /^(chrome:\/\/newtab\/?|chrome:\/\/new-tab-page\/?|about:blank)?$/.test(t.pendingUrl || t.url || '');
+chrome.tabs.onCreated.addListener((t) => serial(() => adopt(t.id, { top: t.openerTabId == null && isBlankNewTab(t) })));
 // A favorite that gets un-favorited joins the active space, like Arc.
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.pinned === false) serial(() => adopt(tabId)); });
 
@@ -1186,7 +1203,7 @@ const handlers = {
   bringTab: (m) => bringTab(m.windowId, m.tabId, m.spaceId),
   newTab: async (m) => {
     const t = await chrome.tabs.create({ windowId: m.windowId, active: true, url: m.url });
-    await adopt(t.id);
+    await adopt(t.id, { top: true });
   },
 };
 
